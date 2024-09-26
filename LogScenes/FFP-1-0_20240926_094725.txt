@@ -1,0 +1,6 @@
+Date		Time		Sub_Nr	Block	Trial	ITI	Pic_Duration	Stimulus
+2024-09-26	09:47:28.298	1	0	1	1.375	0.6		highpos_11.jpg
+2024-09-26	09:47:29.408	1	0	2	1.913	0.6		highpos_19.jpg
+2024-09-26	09:47:30.530	1	0	3	1.731	0.6		highneg_23.jpg
+2024-09-26	09:47:31.641	1	0	4	1.661	0.6		highpos_07.jpg
+2024-09-26	09:47:32.761	1	0	5	1.854	0.6		highneg_24.jpg

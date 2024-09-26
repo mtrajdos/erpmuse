@@ -31,7 +31,7 @@ class FFP2ScenesApp(App):
         self.setup_logging()
 
         # Kivy UI elements
-        self.layout = BoxLayout(orientation='vertical')
+        self.layout = BoxLayout(orientation='horizontal')
         self.image = KivyImage(size_hint=(1, 1), allow_stretch=True, keep_ratio=False)  # Make image fill the window
         self.layout.add_widget(self.image)
 
