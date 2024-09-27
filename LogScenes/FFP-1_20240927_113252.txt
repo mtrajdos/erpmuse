@@ -1,2 +1,0 @@
-Date		Time		Sub_Nr	Block	Trial	ITI	Pic_Duration	Stimulus
-2024-09-27	11:32:57	1	1	4	1.05	0.60	StimuliRenamedToPreventAccidentalUseInFFP2Youth\scenes\lowneg_24.jpg

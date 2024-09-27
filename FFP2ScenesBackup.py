@@ -20,7 +20,7 @@ class FFP2ScenesApp(App):
         self.current_trial = 0
         self.current_block = 1  # Start with the first block
         self.datafilepointer = None
-        self.ITIs = self.generate_random_ITIs(375)  # Generate random ITIs
+        self.ITIs = self.generate_random_ITIs(500)  # Generate random ITIs
         self.scene_stimuli = []  # This will hold all the mixed emotional scene images
         self.preloaded_images = {}  # Dictionary to hold preloaded images
 
@@ -89,8 +89,7 @@ class FFP2ScenesApp(App):
         if self.current_block == 1:
             self.instruction_images = [
                 'Instruktion_prebaseline1.jpg',
-                'Instruktion_prebaseline2.jpg',
-                'Instruktion_prebaseline3.jpg'  # Added the third instruction image
+                'Instruktion_prebaseline2.jpg'
             ]
         elif self.current_block == 2:
             self.instruction_images = ['Instruktion1.jpg', 'Instruktion2.jpg']
