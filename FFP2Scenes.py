@@ -85,7 +85,6 @@ class FFP2ScenesApp(App):
         self.show_instructions()
 
     def show_instructions(self):
-        np.random.shuffle(self.scene_stimuli)
         """Displays the instruction screens before the trials start.""" 
         if self.current_block == 1:
             self.instruction_images = [
@@ -114,9 +113,7 @@ class FFP2ScenesApp(App):
             self.schedule_next_trial()  # Proceed to the first trial
 
     def on_key_down(self, window, key, *args):
-        """Handles key press events to move forward in the experiment, or close it if all blocks are completed.""" 
-        if self.current_block == 4:  # Check if in the pre-baseline block
-            exit()
+        """Handles key press events to move forward in the experiment.""" 
         if self.instruction_index < len(self.instruction_images):
             self.show_next_instruction()
         else:
@@ -180,7 +177,7 @@ class FFP2ScenesApp(App):
         try:
             stimulus_filename = self.scene_stimuli[self.current_trial - 1]
             self.ITI = self.ITIs[self.current_trial - 1]  # Assign ITI for this trial
-            log_entry = f'{date_str}\t{time_str}\t{self.int_SubNumber}\t{self.current_block}\t{self.current_trial}\t{self.ITI:.3f}\t{self.int_DurationPic}\t\t{stimulus_filename}\n'
+            log_entry = f'{date_str}\t{time_str}\t{self.int_SubNumber}\t{self.int_Block}\t{self.current_trial}\t{self.ITI:.3f}\t{self.int_DurationPic}\t\t{stimulus_filename}\n'
             self.datafilepointer.write(log_entry)
             self.datafilepointer.flush()  # Ensure data is written to file
         except Exception as e:
@@ -192,7 +189,7 @@ class FFP2ScenesApp(App):
         self.datafilepointer.close()
         self.image.source = ""
         self.image.reload()
-        
+
     def build(self):
         """Builds the Kivy layout and returns it.""" 
         return self.layout
