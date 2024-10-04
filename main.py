@@ -69,7 +69,7 @@ class FFP2ScenesApp(App):
 
     def setup_logging(self):
         """Sets up the log file for recording trial data.""" 
-        log_dir = os.path.join(os.getcwd(), 'LogScenes')  # Get the LogScenes folder in the current directory
+        log_dir = os.path.join(os.path.expanduser('~'), 'Download')  # Path for log file in the Download folder
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)  # Create the folder if it doesn't exist
         timestamp = datetime.now(pytz.timezone('Europe/Berlin')).strftime('%Y%m%d_%H%M%S')  # Adjust for your timezone
@@ -77,6 +77,7 @@ class FFP2ScenesApp(App):
         self.datafilepointer = open(log_filename, 'w')
         # Write header to log file
         self.datafilepointer.write('Date\t\tTime\t\tSub_Nr\tBlock\tTrial\tITI\tPic_Duration\tStimulus\n')
+
 
     def on_start(self):
         """Starts the experiment and sets the app to fullscreen mode.""" 
