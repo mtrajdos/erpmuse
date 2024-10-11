@@ -1,2 +1,0 @@
-CrossTime	SceneTime	Sub_Nr	Block	Trial	ITI	Pic_Duration	Stimulus
-1728484526.12567	1728484526.62043	1	0	1	1.79724	0.6		lowneg_06.jpg
