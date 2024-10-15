@@ -10,7 +10,7 @@ import platform
 import threading
 
 class OscServer:
-    def __init__(self, ip="127.0.0.1", port=1337):
+    def __init__(self, ip="127.0.0.1", port=5000):
         self.ip = ip
         self.port = port
         self.auxCount = -1
