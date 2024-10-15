@@ -1,8 +1,6 @@
 from kivy.app import App
-from kivy.uix.image import Image
-from kivy.uix.label import Label
+from kivy.uix.image import Image as KivyImage
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.floatlayout import FloatLayout
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.graphics import Color, Rectangle
@@ -14,64 +12,77 @@ import random
 import platform
 from oscServer import OscServer
 from pythonosc import udp_client
-import threading
-import socket
+import time
 
-class FFP2ScenesApp(App):
-    def __init__(self, int_SubNumber, **kwargs):
+# Initialize EmoScenes class
+#
+# osc_server                OSC server object for receiving data/logging packets
+# int_SubNumber             subject number
+# scene_time                duration of stimulus
+# cross_time                timestamp of displaying fixation cross
+# int_DurationPic           duration of stimulus
+# current_trial             counter of current trial number for logging
+# current_block             counter of current block for logging
+# datafilepointer           for writing log lines
+# ITIs                      array holding generated random ITIs
+# scene_stimuli             array of scene filenames to be displayed
+# preloaded_images          dictionary for preloading all scenes for performance
+# client                    client object for specifying IP and port for OSC
+# layout                    Kivy BoxLayout for displaying stuff in the EmoScenes app
+# image                     Image object for rendering instructions/scenes into it, filling the screen without keeping
+#                           the original image file proportions
+# last_trial_end_time       for timestamping when previous trial ended
+# last_scene_time           for timestamping when stimulus was displayed in the previous trial
+# trial_start_time          for timestamping when new trial has begun
+# intended_iti              target ITI based on the random ITI value determined for current trial
+# next_trial_scheduled      boolean for flagging whether upcoming trial is scheduled or not
+# estimated_processing_time estimate for processing involving timestamping, loading trials and writing into log file
+#                           calculated based on test trial logs and used for adjusting stimulus display accuracy
+
+class EmoScenes(App):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.osc_server = OscServer()  # Instantiate the OSC server
-        self.int_SubNumber = int_SubNumber
         self.scene_time = None
         self.cross_time = None
-        self.int_DurationPic = 0.6  # Duration for picture display
-        self.fixation_duration = 0.5  # Duration for fixation cross
+        self.int_DurationPic = 0.600000
         self.current_trial = 0
-        self.current_block = 0  # Start with the prebaseline block 0
+        self.client = udp_client.SimpleUDPClient('127.0.0.1', 1337)
+        self.last_trial_end_time = None
+        self.last_scene_time = None
+        self.trial_start_time = None
+        self.intended_iti = None
+        self.next_trial_scheduled = False
+        self.estimated_processing_time = 0.020000
+        self.scene_stimuli = []
+        self.preloaded_images = {}
+        self.osc_server = OscServer()
+        self.current_block = 0
         self.datafilepointer = None
-        self.ITIs = self.generate_random_ITIs(500)  # Generate random ITIs
-        self.scene_stimuli = []  # This will hold all the mixed emotional scene images
-        self.preloaded_images = {}  # Dictionary to hold preloaded images
-
-        # OSC Client Initialization
-        self.client = udp_client.SimpleUDPClient('127.0.0.1', 1337)  # Adjust IP and port as needed
-
-        # Load the stimulus vectors (randomized trial order)
+        self.layout = BoxLayout(orientation="horizontal")
+        self.image = KivyImage(size_hint=(1, 1), allow_stretch=True, keep_ratio=False)
+        self.layout.add_widget(self.image)
         self.load_vector_file("veclength300.txt")
         self.load_stimuli()
-
-        # Prepare logging
         self.setup_logging()
-
-        # Kivy UI elements
-        self.layout = BoxLayout(orientation="vertical")
-        self.image = Image(source="background.png")
-
-        # Bind key press event
         Window.bind(on_key_down=self.on_key_down)
+        self.ITIs = self.generate_random_ITIs(500)
 
     def start_osc_server(self):
-        """Starts the OSC server on a separate thread."""
-        self.osc_server.start()  # Start the server
+        self.osc_server.start()
 
     def generate_random_ITIs(self, num_ITIs):
-        """Generate random ITIs between 1000ms and 2000ms."""
-        return np.random.uniform(1.0, 2.0, num_ITIs)
+        return np.random.uniform(1.000000, 3.000000, num_ITIs)
 
     def load_vector_file(self, vector_file):
-        """Loads the randomized trial order from a file."""
         self.RandVec = np.loadtxt(vector_file, dtype=int).flatten()
 
     def load_stimuli(self):
-        """Loads stimuli from the 'scenes' folder and pre-loads images into memory."""
         self.scene_stimuli = self.load_stimuli_from_folder(
             "StimuliRenamedToPreventAccidentalUseInFFP2Youth/scenes"
         )
-        random.shuffle(self.scene_stimuli)
         self.preload_images()
 
     def load_stimuli_from_folder(self, folder_name):
-        """Loads all image files from a folder and returns a list of filenames."""
         stimuli = []
         folder_path = os.path.join(os.path.dirname(__file__), folder_name)
         for filename in os.listdir(folder_path):
@@ -80,15 +91,13 @@ class FFP2ScenesApp(App):
         return stimuli
 
     def preload_images(self):
-        """Pre-loads all images into memory."""
         for filename in self.scene_stimuli:
             image_path = os.path.join(
                 "StimuliRenamedToPreventAccidentalUseInFFP2Youth", "scenes", filename
             )
-            self.preloaded_images[filename] = Image(source=image_path)
+            self.preloaded_images[filename] = KivyImage(source=image_path)
 
     def setup_logging(self):
-        """Sets up the log file for recording trial data."""
         if platform.system() == "Windows":
             log_dir = os.path.join(os.getcwd(), "LogScenes")
         else:
@@ -99,7 +108,7 @@ class FFP2ScenesApp(App):
 
         timestamp = datetime.now(pytz.timezone("Europe/Berlin")).strftime("%Y%m%d_%H%M%S")
         log_filename = os.path.join(
-            log_dir, f"FFP-{self.int_SubNumber}-{self.current_block}_{timestamp}.txt"
+            log_dir, f"FFP-{self.current_block}_{timestamp}.txt"
         )
 
         print(f"Log file created: {log_filename}")
@@ -109,15 +118,18 @@ class FFP2ScenesApp(App):
             print(f"Error opening log file: {e}")
 
         self.datafilepointer.write(
-            "CrossTime\t\tSceneTime\t\tSub_Nr\tBlock\tTrial\tITI\tPic_Duration\tStimulus\n"
+            "CrossTime,SceneTime,PicDuration,Target_ITI,Actual_ITI,ITI_Error,Block,Trial,Stimulus\n"
         )
 
     def handle_osc_message(self, address, *args):
-        """Handles incoming OSC messages."""
         print(f"Received OSC message: {address} {args}")
 
+    def on_start(self):
+        Window.fullscreen = "auto"
+        self.start_osc_server()
+        self.show_instructions()
+
     def show_instructions(self):
-        """Displays the instruction screens before the trials start."""
         if self.current_block == 0:
             self.instruction_images = [
                 "Instruktion_prebaseline1.jpg",
@@ -133,46 +145,8 @@ class FFP2ScenesApp(App):
             self.instruction_images = ["Instruktion3.jpg"]
         self.instruction_index = 0
         self.show_next_instruction()
-        
-    def show_dynamic_instruction(self):
-        """Render dynamic instructions with grey background and centered text."""
-        # Clear the layout
-        self.layout.clear_widgets()
-
-        # Create a FloatLayout to allow absolute positioning
-        float_layout = FloatLayout()
-
-        # Add a grey background
-        with float_layout.canvas.before:
-            Color(119/255, 119/255, 119/255)  # Set background to grey
-            float_layout.rect = Rectangle(size=Window.size)
-
-        # Bind the rectangle size to the window size
-        def update_rect(instance, value):
-            instance.rect.size = instance.size
-        float_layout.bind(size=update_rect)
-
-        # Create the Label with centered text
-        instruction_label = Label(
-            text="Hello world!",
-            font_size='30sp',
-            color=(1, 1, 1, 1),  # White text
-            size_hint=(None, None),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5}  # Center the label
-        )
-
-        # Add the Label to the FloatLayout only if it's not already a child
-        if instruction_label not in float_layout.children:
-            float_layout.add_widget(instruction_label)
-
-        # Add the FloatLayout to the main layout
-        self.layout.add_widget(float_layout)
-
-        # Force a layout update
-        self.layout.do_layout()
 
     def show_next_instruction(self):
-        """Displays the next instruction image."""
         if self.instruction_index < len(self.instruction_images):
             instr_path = os.path.join(
                 os.path.dirname(__file__),
@@ -182,118 +156,135 @@ class FFP2ScenesApp(App):
             self.image.reload()
             self.instruction_index += 1
         else:
-            self.current_trial = 0  # Reset trial for the new block
-            self.schedule_next_trial()  # Proceed to the first trial
-
-    def on_key_down(self, window, key, *args):
-        """Handles key press events to move forward in the experiment."""
-        if self.instruction_index < len(self.instruction_images):
-            self.show_next_instruction()
-        elif self.current_block == 4:  # After the final instruction (Instruktion3.jpg)
-            self.end_experiment()  # End the experiment when any key is pressed
-        else:
+            self.current_trial = 0
             self.schedule_next_trial()
 
-    def schedule_next_trial(self, dt=None):
-        """Schedules the next trial, starting with the fixation cross."""
-        if self.current_block == 0 and self.current_trial >= 125:  # Pre-baseline block
-            np.random.shuffle(self.scene_stimuli)
-            self.current_block += 1  # Move to block 1
-            self.show_instructions()  # Show end of pre-baseline instructions
-            self.current_trial = 0
-        elif self.current_block == 1 and self.current_trial >= 125:  # Block 1
-            np.random.shuffle(self.scene_stimuli)
-            self.current_block += 1  # Move to block 2
-            self.show_instructions()  # Show instructions for block 2
-            self.current_trial = 0
-        elif self.current_block == 2 and self.current_trial >= 125:  # Block 2
-            np.random.shuffle(self.scene_stimuli)
-            self.current_block += 1  # Move to block 3
-            self.show_instructions()  # Show instructions for block 3
-            self.current_trial = 0
-        elif self.current_block == 3 and self.current_trial >= 125:  # Block 3 (final block)
-            self.current_block += 1  # Move to block 4 (but we're actually ending here)
-            self.show_instructions()  # Show final instruction (Instruktion3.jpg)
-        elif self.current_trial < len(self.RandVec):
-            Clock.schedule_once(self.show_fixation_cross, 0)
+    def on_key_down(self, window, key, *args):
+        if self.instruction_index < len(self.instruction_images):
+            self.show_next_instruction()
+        elif self.current_block == 4:
+            self.end_experiment()
         else:
-            if self.current_block == 4:  # If we are at the end after block 3's instruction
-                self.end_experiment()  # End experiment after Instruktion3.jpg is shown
-            else:
-                self.show_instructions()  # Show instructions for the next block if not finished yet
-                self.current_trial = 0  # Reset trial for the new block
-        
-    def show_fixation_cross(self, dt):
-        """Displays a fixation cross before showing the stimulus image."""
-        self.layout.clear_widgets()
-        with self.layout.canvas.before:
-            Color(119 / 255, 119 / 255, 119 / 255)  # Set background to grey
-            self.rect = Rectangle(size=self.layout.size, pos=self.layout.pos)
-        self.image = Image(source="fixation_cross.png", allow_stretch=False, keep_ratio=True)
-        self.layout.add_widget(self.image)
-        
-        # Get the current time for CrossTime
-        now = datetime.now(pytz.timezone("Europe/Berlin"))
-        self.cross_time = now.timestamp()  # Store CrossTime
+            if not self.next_trial_scheduled:
+                self.schedule_next_trial()
 
-        Clock.schedule_once(self.show_trial, self.fixation_duration)
+    def schedule_next_trial(self, dt=None):
+        if self.next_trial_scheduled:
+            return
+
+        current_time = time.time()
+        if self.last_trial_end_time is not None:
+            actual_iti = current_time - self.last_trial_end_time
+            print(f"Actual ITI: {actual_iti:.6f} seconds")
+        else:
+            actual_iti = 0
+
+        if self.current_block == 0 and self.current_trial >= 125:
+            np.random.shuffle(self.scene_stimuli)
+            self.current_block += 1
+            self.show_instructions()
+            self.current_trial = 0
+        elif self.current_block == 1 and self.current_trial >= 125:
+            np.random.shuffle(self.scene_stimuli)
+            self.current_block += 1
+            self.show_instructions()
+            self.current_trial = 0
+        elif self.current_block == 2 and self.current_trial >= 125:
+            np.random.shuffle(self.scene_stimuli)
+            self.current_block += 1
+            self.show_instructions()
+            self.current_trial = 0
+        elif self.current_block == 3 and self.current_trial >= 125:
+            self.current_block += 1
+            self.show_instructions()
+        elif self.current_trial < len(self.RandVec):
+            self.intended_iti = self.ITIs[self.current_trial]
+            print(f"Intended ITI for next trial: {self.intended_iti:.6f} seconds")
+            
+            # Calculate fixation duration including compensation for stimulus duration and processing time
+            fixation_duration = max(0.100000, self.intended_iti - self.int_DurationPic - self.estimated_processing_time)
+            
+            print(f"Adjusted fixation duration: {fixation_duration:.6f} seconds")
+            
+            Clock.schedule_once(lambda dt: self.show_fixation_cross(fixation_duration), 0)
+            self.next_trial_scheduled = True
+        else:
+            if self.current_block == 4:
+                self.end_experiment()
+            else:
+                self.show_instructions()
+                self.current_trial = 0
+
+        self.last_trial_end_time = current_time
+
+    def show_fixation_cross(self, duration):
+        print(f"Showing fixation cross for {duration:.6f} seconds")
+        with self.layout.canvas.before:
+            Color(119 / 255, 119 / 255, 119 / 255)
+            self.rect = Rectangle(size=self.layout.size, pos=self.layout.pos)
+        self.image.source = "fixation_cross.png"
+        self.image.allow_stretch = False
+        self.image.keep_ratio = True
+        self.image.reload()
+        
+        now = datetime.now(pytz.timezone("Europe/Berlin"))
+        self.cross_time = now.timestamp()
+
+        Clock.schedule_once(self.show_trial, duration)
         
     def show_trial(self, dt):
-        """Displays the stimulus image for the current trial."""
+        print("Showing trial stimulus")
+        self.trial_start_time = time.time()
         if self.current_trial >= len(self.scene_stimuli):
             print(f"Error: Trial index {self.current_trial} exceeds the number of stimuli ({len(self.scene_stimuli)}).")
             self.end_experiment()
             return
 
-        self.timestamp = datetime.now(pytz.timezone("Europe/Berlin"))  # Retrieve time for log filename
+        self.timestamp = datetime.now(pytz.timezone("Europe/Berlin"))
         stim_file = self.scene_stimuli[self.current_trial]
 
         self.current_trial += 1
-        self.layout.clear_widgets()
-        self.image = self.preloaded_images[stim_file]
-        self.layout.add_widget(self.image)
+        self.image.source = self.preloaded_images[stim_file].source
+        self.image.allow_stretch = True
+        self.image.keep_ratio = False
+        self.image.reload()
         
-        # Get current time including milliseconds and microseconds for SceneTime
         now = datetime.now(pytz.timezone("Europe/Berlin"))
-        self.scene_time = now.timestamp()  # This will include milliseconds and microseconds
-        self.ITI = self.ITIs[self.current_trial]  # Assign ITI for this trial
+        self.scene_time = now.timestamp()
+        target_iti = self.ITIs[self.current_trial - 1]
 
-        # Prepare log entry with CrossTime and SceneTime
-        log_entry = f"{self.cross_time:.6f}\t{self.scene_time:.6f}\t{self.int_SubNumber}\t{self.current_block}\t{self.current_trial}\t{self.ITI:.6f}\t{self.int_DurationPic}\t\t{stim_file}\n"
+        actual_iti = self.scene_time - self.last_scene_time if self.last_scene_time is not None else 0
+        self.last_scene_time = self.scene_time
+
+        iti_error = actual_iti - target_iti
+
+        log_entry = f"{self.cross_time:.6f},{self.scene_time:.6f},{self.int_DurationPic:.6f},{target_iti:.6f},{actual_iti:.6f},{iti_error:.6f},{self.current_block},{self.current_trial},{stim_file}\n"
         self.datafilepointer.write(log_entry)
 
-        print(f"Logged: {log_entry.strip()}")  # Debugging statement to see what is logged
+        print(f"Logged: {log_entry.strip()}")
 
-        Clock.schedule_once(self.log_data_and_schedule_next, self.int_DurationPic)
+        Clock.schedule_once(self.end_trial, self.int_DurationPic)
         
-    def log_data_and_schedule_next(self, dt):
-        """Logs the data for the current trial and schedules the next."""
-        self.datafilepointer.flush()  # Ensure data is written to disk
+    def end_trial(self, dt):
+        print("Ending trial and scheduling next")
+        self.datafilepointer.flush()
+        self.next_trial_scheduled = False
         self.schedule_next_trial()
 
     def end_experiment(self):
-        """Ends the experiment and closes the log file."""
         if self.datafilepointer is not None:
             self.datafilepointer.close()
         self.stop()
         print("Experiment finished. Goodbye!")
-        
-    def on_start(self):
-        """Starts the experiment and sets the app to fullscreen mode."""
-        Window.fullscreen = "auto"  # Set to true fullscreen
-        self.start_osc_server()  # Start OSC server
-        self.show_instructions()
 
     def on_stop(self):
-        """Stops the OSC server when the app exits."""
         if self.osc_server:
-            self.osc_server.server.shutdown()  # Gracefully shut down the OSC server
-            self.osc_server.server.server_close()  # Close the socket
+            self.osc_server.server.shutdown()
+            self.osc_server.server.server_close()
             print("OSC server stopped.")
 
     def build(self):
-        """Builds the Kivy layout and returns it."""
         return self.layout
 
 if __name__ == "__main__":
-    FFP2ScenesApp(1).run()
+    EmoScenes().run()
