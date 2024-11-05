@@ -4,6 +4,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.graphics import Color, Rectangle
+from kivy.logger import Logger
 import numpy as np
 import os
 from datetime import datetime
@@ -270,4 +271,7 @@ class EmoScenes(App):
         return self.layout
 
 if __name__ == "__main__":
-    EmoScenes().run()
+    try:
+        EmoScenes().run()
+    except Exception as e:
+        Logger.error(f'Application Error: {str(e)}')
