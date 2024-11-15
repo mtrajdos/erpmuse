@@ -1,6 +1,5 @@
 from kivy.app import App
 from kivy.uix.image import Image as KivyImage
-from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.clock import Clock
 from kivy.core.window import Window
@@ -14,7 +13,7 @@ import random
 import platform
 import time
 
-class EmoScenes(App):
+class SimplifiedEmoScenes(App):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.initialize_variables()
@@ -41,7 +40,7 @@ class EmoScenes(App):
         self.next_trial_scheduled = False
         
         # Data structures
-        self.scene_stimuli = []
+        self.scene_stimuli = ['checkerboard.png'] * 125
         self.preloaded_images = {}
         self.preloaded_instructions = {}  # New dict for instruction images
         self.showing_instructions = False
@@ -49,7 +48,7 @@ class EmoScenes(App):
         
         # Asset paths
         self.fixation_path = "sprites/fixation_cross.png"
-        self.square_path = "sprites/white_square.png"
+        self.square_path = "sprites/red_square.png"
 
     def setup_ui(self):
         # Create main layout
@@ -107,9 +106,8 @@ class EmoScenes(App):
             self.rect = Rectangle(size=self.layout.size, pos=self.layout.pos)
 
     def load_data(self):
-        self.load_stimuli_from_folder()
-        self.randomize_stimuli()
-        self.preload_instruction_images()  # Add instruction preloading
+        self.preload_instruction_images()
+        self.preload_images()
 
     def preload_instruction_images(self):
         instruction_sets = {
@@ -126,46 +124,12 @@ class EmoScenes(App):
                 if os.path.exists(instr_path):
                     self.preloaded_instructions[instr] = KivyImage(source=instr_path)
 
+    def preload_images(self):
+        self.preloaded_images['checkerboard.png'] = KivyImage(source='sprites/checkerboard.png', allow_stretch=True, keep_ratio=False)
+
     def generate_random_ITIs(self, num_ITIs):
         print(f"Generating {num_ITIs} random ITIs")
         return np.random.uniform(1.000000, 3.000000, num_ITIs)
-            
-    def randomize_stimuli(self):
-        print(f"Randomizing stimuli for block {self.current_block}")
-        print(f"Number of stimuli before randomization: {len(self.scene_stimuli)}")
-        random.shuffle(self.scene_stimuli)
-        print(f"Number of stimuli after randomization: {len(self.scene_stimuli)}")
-        print(f"First 5 stimuli after randomization: {self.scene_stimuli[:5]}")
-        self.preload_images()
-
-    def load_stimuli_from_folder(self, folder_name="stimuli"):
-        print(f"Loading stimuli from folder: {folder_name}")
-        folder_path = os.path.join(os.path.dirname(__file__), folder_name)
-        if not os.path.exists(folder_path):
-            print(f"Error: Folder '{folder_path}' does not exist.")
-            return
-        try:
-            all_files = os.listdir(folder_path)
-            self.scene_stimuli = [f for f in all_files if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
-            print(f"Found {len(self.scene_stimuli)} stimuli in {folder_name}")
-            if self.scene_stimuli:
-                print(f"First 5 stimuli: {self.scene_stimuli[:5]}")
-            else:
-                print("No stimuli found. Check file extensions and permissions.")
-        except Exception as e:
-            print(f"Error reading directory: {e}")
-        self.preload_images()
-
-    def preload_images(self):
-        print(f"Preloading {len(self.scene_stimuli)} images")
-        for filename in self.scene_stimuli:
-            image_path = os.path.join(os.path.dirname(__file__), "stimuli", filename)
-            if os.path.exists(image_path):
-                self.preloaded_images[filename] = KivyImage(source=image_path, allow_stretch=True, keep_ratio=False)
-            else:
-                print(f"Error: Image file not found: {image_path}")
-        print(f"Preloaded {len(self.preloaded_images)} images")
-        print(f"First 5 preloaded images: {list(self.preloaded_images.keys())[:5]}")
 
     def setup_logging(self):
         print("Setting up logging")
@@ -184,10 +148,6 @@ class EmoScenes(App):
         print("Application starting")
         Window.fullscreen = "auto"
         self.show_instructions()
-
-    def start_osc_server(self):
-        print("Starting OSC server")
-        self.osc_server.start()
 
     def show_instructions(self):
         print(f"Showing instructions for block {self.current_block}")
@@ -275,7 +235,6 @@ class EmoScenes(App):
         self.current_block += 1
         if self.current_block < 4:
             print(f"Transitioning to block {self.current_block}")
-            self.randomize_stimuli()
             self.current_trial = 1
             self.show_instructions()
         else:
@@ -301,36 +260,18 @@ class EmoScenes(App):
         Clock.schedule_once(self.show_trial, duration)
 
     def show_trial(self, dt):
-        print(f"Showing trial stimulus for trial {self.current_trial} out of 125")
-        print(f"Current block: {self.current_block}")
-        
         self.trial_start_time = time.time()
-        if self.current_trial > len(self.scene_stimuli):
-            print(f"Error: Trial index {self.current_trial} exceeds the number of stimuli ({len(self.scene_stimuli)}).")
-            self.end_experiment()
-            return
 
-        stim_file = self.scene_stimuli[self.current_trial - 1]
-        print(f"Current stimulus: {stim_file}")
+        # Show the fixed checkerboard image
+        self.background_image.opacity = 1
+        self.background_image.source = os.path.join(os.path.dirname(__file__), "sprites", "checkerboard.png")
+        self.background_image.reload()
 
-        if stim_file in self.preloaded_images:
-            # Show background image
-            self.background_image.opacity = 1
-            self.background_image.source = os.path.join(os.path.dirname(__file__), "stimuli", stim_file)
-            self.background_image.reload()
-            
-            # Show both fixation cross and square
-            self.fixation_cross.opacity = 1
-            self.white_square.opacity = 1
-            
-            print(f"Loaded and displayed stimulus image with overlays: {stim_file}")
-        else:
-            print(f"Error: Image {stim_file} not found in preloaded images.")
-            self.end_trial(0)
-            return
-        
-        self.log_trial_data(stim_file)
-        # Schedule end_trial for all trials, including trial 125
+        # Show the red square in the bottom right corner
+        self.fixation_cross.opacity = 1
+        self.white_square.opacity = 1
+
+        self.log_trial_data("checkerboard.png")
         Clock.schedule_once(self.end_trial, self.int_DurationPic)
 
     def log_trial_data(self, stim_file):
@@ -345,7 +286,6 @@ class EmoScenes(App):
         print(f"Logged: {log_entry.strip()}")
 
     def end_trial(self, dt):
-        print("Ending trial and scheduling next")
         self.datafilepointer.flush()
         
         # Check if this is trial 125 (end of block)
@@ -381,6 +321,6 @@ class EmoScenes(App):
 
 if __name__ == "__main__":
     try:
-        EmoScenes().run()
+        SimplifiedEmoScenes().run()
     except Exception as e:
         Logger.error(f'Application Error: {str(e)}')
