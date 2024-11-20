@@ -64,7 +64,7 @@ class SimplifiedEmoScenes(App):
 
         # Set up grey background
         with self.layout.canvas.before:
-            Color(100/255, 100/255, 100/255)
+            Color(80/255, 80/255, 80/255)
             self.rect = Rectangle(size=self.layout.size, pos=self.layout.pos)
 
         # Create background image
