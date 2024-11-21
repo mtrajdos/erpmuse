@@ -111,7 +111,7 @@ class SimplifiedEmoScenes(App):
         log_dir = os.path.join(os.getcwd(), "logs") if platform.system() == "Windows" else os.path.join("/storage/emulated/0/Download", "logs")
         os.makedirs(log_dir, exist_ok=True)
         timestamp = datetime.now(pytz.timezone("Europe/Berlin")).strftime("%Y%m%d_%H%M%S")
-        log_filename = os.path.join(log_dir, f"ShamScenes_{timestamp}.log")
+        log_filename = os.path.join(log_dir, f"ShamScenes_{timestamp}.txt")
         try:
             self.datafilepointer = open(log_filename, "w")
             self.datafilepointer.write("StimON,StimOFF,StimDuration,Target_ITI,Actual_ITI,ITI_Error,Trial,StimFile\n")
