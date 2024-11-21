@@ -122,13 +122,24 @@ class SimplifiedEmoScenes(App):
                 instr_path = os.path.join(os.path.dirname(__file__), "instructionsDE", instr)
                 if os.path.exists(instr_path):
                     self.preloaded_instructions[instr] = KivyImage(source=instr_path)
+                    
+    def get_instruction_images(self):
+        if self.current_block == 0:
+            return ["background.png", "Instruktion_prebaseline1.jpg", "Instruktion_prebaseline2.jpg"]
+        elif self.current_block == 1:
+            return ["Instruktion1.jpg", "Instruktion2.jpg"]
+        elif self.current_block in [2, 3]:
+            return ["Instruktion2.jpg"]
+        elif self.current_block == 4:
+            return ["Instruktion3.jpg"]
+        return []
 
     def preload_images(self):
         self.preloaded_images['checkerboard.png'] = KivyImage(source='sprites/checkerboard.png', allow_stretch=True, keep_ratio=False)
 
     def generate_random_ITIs(self, num_ITIs):
         print(f"Generating {num_ITIs} random ITIs")
-        return np.random.uniform(1.000000, 3.000000, num_ITIs)
+        return np.random.uniform(0.0100000, 0.0300000, num_ITIs)
 
     def setup_logging(self):
         print("Setting up logging")
@@ -142,6 +153,41 @@ class SimplifiedEmoScenes(App):
             print(f"Log file created: {log_filename}")
         except Exception as e:
             print(f"Error opening log file: {e}")
+            
+    def show_instructions(self):
+        print(f"Showing instructions for block {self.current_block}")
+        self.showing_instructions = True
+        self.instruction_images = self.get_instruction_images()
+        self.instruction_index = 0
+        # Ensure cross is hidden before showing instructions
+        self.fixation_cross.opacity = 0
+        self.show_next_instruction()
+        
+    def show_next_instruction(self):
+        if self.instruction_index < len(self.instruction_images):
+            instr_file = self.instruction_images[self.instruction_index]
+            if instr_file in self.preloaded_instructions:
+                # Hide fixation cross and square during instructions
+                self.fixation_cross.opacity = 0
+                self.white_square.opacity = 0
+                
+                # Show instruction on background image
+                self.background_image.opacity = 1
+                self.background_image.source = os.path.join(os.path.dirname(__file__), "instructionsDE", instr_file)
+                self.background_image.reload()
+                
+                print(f"Showing instruction {self.instruction_index + 1} of {len(self.instruction_images)}")
+            else:
+                print(f"Error: Instruction image not found: {instr_file}")
+            self.instruction_index += 1
+        else:
+            print("All instructions shown. Transitioning to trials.")
+            self.showing_instructions = False
+            # Show the fixation cross immediately after instructions end
+            self.background_image.opacity = 0
+            self.fixation_cross.opacity = 1
+            self.white_square.opacity = 0  # Ensure square is hidden
+            self.schedule_next_trial()
 
     def show_trial(self, dt):
         self.trial_start_time = time.time()
@@ -261,6 +307,11 @@ class SimplifiedEmoScenes(App):
             self.datafilepointer.close()
         self.stop()
         print("Experiment finished. Goodbye!")
+        
+    def on_start(self):
+        print("Application starting")
+        Window.fullscreen = "auto"
+        self.show_instructions()
 
     def on_stop(self):
         print("Stopping application")
