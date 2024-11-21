@@ -139,7 +139,7 @@ class SimplifiedEmoScenes(App):
 
     def generate_random_ITIs(self, num_ITIs):
         print(f"Generating {num_ITIs} random ITIs")
-        return np.random.uniform(0.0100000, 0.0300000, num_ITIs)
+        return np.random.uniform(1.000000, 3.000000, num_ITIs)
 
     def setup_logging(self):
         print("Setting up logging")
