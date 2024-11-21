@@ -31,7 +31,7 @@ class SimplifiedEmoScenes(App):
         self.estimated_processing_time = 0.007000
 
         # Trial tracking
-        self.current_trial = 0
+        self.current_trial = 1
         self.last_trial_end_time = None
         self.last_stimulus_offset_time = None  
         self.trial_start_time = None
@@ -104,7 +104,7 @@ class SimplifiedEmoScenes(App):
 
     def generate_random_ITIs(self, num_ITIs):
         print(f"Generating {num_ITIs} random ITIs")
-        return np.random.uniform(0.010000, 0.020000, num_ITIs)
+        return np.random.uniform(1.000000, 3.000000, num_ITIs)
 
     def setup_logging(self):
         print("Setting up logging")
@@ -156,10 +156,15 @@ class SimplifiedEmoScenes(App):
         self.last_stimulus_offset_time = self.stim_off_time
 
     def end_trial(self, dt):
-        self.log_trial_data(self.scene_stimuli[self.current_trial])
+        self.log_trial_data(self.scene_stimuli[self.current_trial - 1])  # Subtract 1 for 0-based array indexing
         self.datafilepointer.flush()
 
-        if self.current_trial == 624:  # Since we start from 0
+        if self.current_trial == 624:  # Since we start at 1, this is trial 624
+            self.next_trial_scheduled = False
+            self.current_trial += 1
+            self.schedule_next_trial()
+        elif self.current_trial == 625:  # Last trial
+            self.log_trial_data(self.scene_stimuli[self.current_trial - 1])  # Subtract 1 for array index
             self.datafilepointer.flush()
             self.background_image.opacity = 0
             self.fixation_cross.opacity = 0
@@ -183,14 +188,9 @@ class SimplifiedEmoScenes(App):
             return
 
         print(f"Scheduling trial {self.current_trial}")
-        current_time = time.time()
 
-        if self.current_trial == 625:
-            self.end_experiment()
-            return
-
-        if self.current_trial < 625:
-            self.intended_iti = self.ITIs[self.current_trial]
+        if self.current_trial <= 625:  # Changed < to <= since we start at 1
+            self.intended_iti = self.ITIs[self.current_trial - 1]  # Subtract 1 for 0-based array indexing
             fixation_duration = max(0.100000, self.intended_iti - self.stim_duration - self.estimated_processing_time)
             print(f"Intended ITI: {self.intended_iti:.6f} s, Adjusted fixation duration: {fixation_duration:.6f} s")
             Clock.schedule_once(lambda dt: self.show_fixation_cross(fixation_duration), 0)
@@ -198,8 +198,6 @@ class SimplifiedEmoScenes(App):
         else:
             print("Error: Ran out of stimuli")
             self.end_experiment()
-
-        self.last_trial_end_time = current_time
 
     def show_fixation_cross(self, duration):
         print(f"Showing fixation cross for {duration:.6f} seconds")
