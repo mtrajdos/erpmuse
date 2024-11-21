@@ -6,10 +6,10 @@ from kivy.core.window import Window
 from kivy.graphics import Color, Rectangle
 from kivy.logger import Logger
 import numpy as np
+import random
 import os
 from datetime import datetime
 import pytz
-import random
 import platform
 import time
 
@@ -18,7 +18,6 @@ class SimplifiedEmoScenes(App):
         super().__init__(**kwargs)
         self.initialize_variables()
         self.setup_ui()
-        self.load_data()
         self.setup_logging()
         Window.bind(on_key_down=self.on_key_down)
         Window.bind(on_resize=self.on_window_resize)
@@ -26,26 +25,25 @@ class SimplifiedEmoScenes(App):
     def initialize_variables(self):
         print("Initializing EmoScenes")
         # Timing variables
-        self.scene_time = None
-        self.cross_time = None
+        self.stim_on_time = None
+        self.stim_off_time = None
         self.int_DurationPic = 0.600000
         self.estimated_processing_time = 0.007000
 
         # Trial tracking
         self.current_trial = 0
-        self.current_block = 0
         self.last_trial_end_time = None
-        self.last_stimulus_offset_time = None  # New variable for correct ITI calculation
+        self.last_stimulus_offset_time = None  
         self.trial_start_time = None
         self.intended_iti = None
         self.next_trial_scheduled = False
 
         # Data structures
-        self.scene_stimuli = ['checkerboard.png'] * 125
+        self.scene_stimuli = [f'checkerboard{brightness}.png' for brightness in [255, 225, 195, 175, 155]] * 125  # Repeat each 125 times
+        random.shuffle(self.scene_stimuli)  # Randomize the order
         self.preloaded_images = {}
-        self.preloaded_instructions = {}
-        self.showing_instructions = False
-        self.ITIs = self.generate_random_ITIs(500)
+        self.showing_background = True
+        self.ITIs = self.generate_random_ITIs(625)  # Generate 625 ITIs
 
         # Asset paths
         self.fixation_path = "sprites/fixation_cross.png"
@@ -94,43 +92,19 @@ class SimplifiedEmoScenes(App):
         self.layout.add_widget(self.background_image)    # Bottom layer
         self.layout.add_widget(self.white_square)        # Middle layer
         self.layout.add_widget(self.fixation_cross)      # Top layer
-
-    def load_data(self):
-        self.preload_instruction_images()
-        self.preload_images()
-
-    def preload_instruction_images(self):
-        instruction_sets = {
-            0: ["background.png", "Instruktion_prebaseline1.jpg", "Instruktion_prebaseline2.jpg"],
-            1: ["Instruktion1.jpg", "Instruktion2.jpg"],
-            2: ["Instruktion2.jpg"],
-            3: ["Instruktion2.jpg"],
-            4: ["Instruktion3.jpg"]
-        }
         
-        for block, instructions in instruction_sets.items():
-            for instr in instructions:
-                instr_path = os.path.join(os.path.dirname(__file__), "instructionsDE", instr)
-                if os.path.exists(instr_path):
-                    self.preloaded_instructions[instr] = KivyImage(source=instr_path)
-                    
-    def get_instruction_images(self):
-        if self.current_block == 0:
-            return ["background.png", "Instruktion_prebaseline1.jpg", "Instruktion_prebaseline2.jpg"]
-        elif self.current_block == 1:
-            return ["Instruktion1.jpg", "Instruktion2.jpg"]
-        elif self.current_block in [2, 3]:
-            return ["Instruktion2.jpg"]
-        elif self.current_block == 4:
-            return ["Instruktion3.jpg"]
-        return []
-
     def preload_images(self):
-        self.preloaded_images['checkerboard.png'] = KivyImage(source='sprites/checkerboard.png', allow_stretch=True, keep_ratio=False)
+        for brightness in [255, 225, 195, 175, 155]:
+            image_name = f'checkerboard{brightness}.png'
+            self.preloaded_images[image_name] = KivyImage(
+                source=os.path.join('sprites', image_name),
+                allow_stretch=True,
+                keep_ratio=False
+            )
 
     def generate_random_ITIs(self, num_ITIs):
         print(f"Generating {num_ITIs} random ITIs")
-        return np.random.uniform(1.000000, 3.000000, num_ITIs)
+        return np.random.uniform(0.010000, 0.020000, num_ITIs)
 
     def setup_logging(self):
         print("Setting up logging")
@@ -140,95 +114,57 @@ class SimplifiedEmoScenes(App):
         log_filename = os.path.join(log_dir, f"ShamScenes_{timestamp}.txt")
         try:
             self.datafilepointer = open(log_filename, "w")
-            self.datafilepointer.write("CrossTime,SceneTime,StimulusOffsetTime,PicDuration,Target_ITI,Actual_ITI,ITI_Error,Block,Trial,Stimulus,Square\n")
+            self.datafilepointer.write("CrossTime,SceneTime,StimulusOffsetTime,PicDuration,Target_ITI,Actual_ITI,ITI_Error,Trial,Stimulus,Square\n")
             print(f"Log file created: {log_filename}")
         except Exception as e:
             print(f"Error opening log file: {e}")
-            
-    def show_instructions(self):
-        print(f"Showing instructions for block {self.current_block}")
-        self.showing_instructions = True
-        self.instruction_images = self.get_instruction_images()
-        self.instruction_index = 0
-        # Ensure cross is hidden before showing instructions
-        self.fixation_cross.opacity = 0
-        self.show_next_instruction()
-        
-    def show_next_instruction(self):
-        if self.instruction_index < len(self.instruction_images):
-            instr_file = self.instruction_images[self.instruction_index]
-            if instr_file in self.preloaded_instructions:
-                # Hide fixation cross and square during instructions
-                self.fixation_cross.opacity = 0
-                self.white_square.opacity = 0
-                
-                # Show instruction on background image
-                self.background_image.opacity = 1
-                self.background_image.source = os.path.join(os.path.dirname(__file__), "instructionsDE", instr_file)
-                self.background_image.reload()
-                
-                print(f"Showing instruction {self.instruction_index + 1} of {len(self.instruction_images)}")
-            else:
-                print(f"Error: Instruction image not found: {instr_file}")
-            self.instruction_index += 1
-        else:
-            print("All instructions shown. Transitioning to trials.")
-            self.showing_instructions = False
-            # Show the fixation cross immediately after instructions end
-            self.background_image.opacity = 0
-            self.fixation_cross.opacity = 1
-            self.white_square.opacity = 0  # Ensure square is hidden
-            self.schedule_next_trial()
 
     def show_trial(self, dt):
         self.trial_start_time = time.time()
         now = datetime.now(pytz.timezone("Europe/Berlin"))
-        self.scene_time = now.timestamp()
+        self.stim_on_time = now.timestamp()
 
-        # Show the fixed checkerboard image
+        # Show the checkerboard image for this trial
         self.background_image.opacity = 1
-        self.background_image.source = os.path.join(os.path.dirname(__file__), "sprites", "checkerboard.png")
+        self.background_image.source = os.path.join(os.path.dirname(__file__), "sprites", self.scene_stimuli[self.current_trial])
         self.background_image.reload()
 
-        # Show the randomly selected square in the bottom right corner
+        # Show fixation cross and square
         self.fixation_cross.opacity = 1
         self.white_square.opacity = 1
         self.white_square.pos = (Window.width - self.white_square.width, 0)
 
-        # Schedule the end of the trial
         Clock.schedule_once(self.end_trial, self.int_DurationPic)
 
     def log_trial_data(self, stim_file):
-        stimulus_offset_time = datetime.now(pytz.timezone("Europe/Berlin")).timestamp()
+        self.stim_off_time = datetime.now(pytz.timezone("Europe/Berlin")).timestamp()
         target_iti = self.ITIs[self.current_trial - 1]
         
         # Calculate actual ITI (from last stimulus offset to current stimulus onset plus stimulus duration)
         if self.last_stimulus_offset_time is not None:
             # Add stimulus duration to match the target ITI definition
-            actual_iti = (self.scene_time - self.last_stimulus_offset_time) + self.int_DurationPic
+            actual_iti = (self.stim_on_time - self.last_stimulus_offset_time) + self.int_DurationPic
         else:
             actual_iti = 0
         
         iti_error = actual_iti - target_iti
-        log_entry = f"{self.cross_time:.6f},{self.scene_time:.6f},{stimulus_offset_time:.6f},{self.int_DurationPic:.6f},{target_iti:.6f},{actual_iti:.6f},{iti_error:.6f},{self.current_block},{self.current_trial},{stim_file}\n"
+        log_entry = f"{self.stim_on_time:.6f},{self.stim_off_time:.6f},{self.int_DurationPic:.6f},{target_iti:.6f},{actual_iti:.6f},{iti_error:.6f},{self.current_trial},{stim_file}\n"
         self.datafilepointer.write(log_entry)
         print(f"Logged: {log_entry.strip()}")
         
         # Store the stimulus offset time for next trial's ITI calculation
-        self.last_stimulus_offset_time = stimulus_offset_time
+        self.last_stimulus_offset_time = self.stim_off_time
 
     def end_trial(self, dt):
-        self.log_trial_data("checkerboard.png")
+        self.log_trial_data(self.scene_stimuli[self.current_trial])
         self.datafilepointer.flush()
 
-        # Check if this is trial 125 (end of block)
-        if self.current_trial == 125:
+        if self.current_trial == 624:  # Since we start from 0
             self.datafilepointer.flush()
-            # Hide all visual elements after 600ms
             self.background_image.opacity = 0
             self.fixation_cross.opacity = 0
             self.white_square.opacity = 0
-            Clock.schedule_once(lambda dt: self.transition_to_next_block(), 0)
+            Clock.schedule_once(lambda dt: self.end_experiment(), 0)
         else:
             self.next_trial_scheduled = False
             self.current_trial += 1
@@ -236,10 +172,9 @@ class SimplifiedEmoScenes(App):
             
     def on_key_down(self, window, key, *args):
         print(f"Key pressed: {key}")
-        if self.showing_instructions:
-            self.show_next_instruction()
-        elif self.current_block == 4:
-            self.end_experiment()
+        if self.showing_background:
+            self.showing_background = False
+            self.schedule_next_trial()
         elif not self.next_trial_scheduled:
             self.schedule_next_trial()
 
@@ -247,22 +182,21 @@ class SimplifiedEmoScenes(App):
         if self.next_trial_scheduled:
             return
 
-        print(f"Scheduling trial {self.current_trial} in block {self.current_block}")
+        print(f"Scheduling trial {self.current_trial}")
         current_time = time.time()
 
-        if self.current_trial == 125:
-            self.transition_to_next_block()
+        if self.current_trial == 625:
+            self.end_experiment()
             return
 
-        if self.current_trial <= len(self.scene_stimuli):
-            self.intended_iti = self.ITIs[self.current_trial - 1]
-            # Adjust fixation duration by subtracting both stimulus duration and processing time
+        if self.current_trial < 625:
+            self.intended_iti = self.ITIs[self.current_trial]
             fixation_duration = max(0.100000, self.intended_iti - self.int_DurationPic - self.estimated_processing_time)
             print(f"Intended ITI: {self.intended_iti:.6f} s, Adjusted fixation duration: {fixation_duration:.6f} s")
             Clock.schedule_once(lambda dt: self.show_fixation_cross(fixation_duration), 0)
             self.next_trial_scheduled = True
         else:
-            print("Error: Ran out of stimuli before block completion")
+            print("Error: Ran out of stimuli")
             self.end_experiment()
 
         self.last_trial_end_time = current_time
@@ -282,7 +216,6 @@ class SimplifiedEmoScenes(App):
         # Hide background image but maintain grey background
         self.background_image.opacity = 0
         
-        self.cross_time = datetime.now(pytz.timezone("Europe/Berlin")).timestamp()
         Clock.schedule_once(self.show_trial, duration)
 
     def transition_to_next_block(self):
@@ -304,7 +237,10 @@ class SimplifiedEmoScenes(App):
     def on_start(self):
         print("Application starting")
         Window.fullscreen = "auto"
-        self.show_instructions()
+        # Show just the grey background initially
+        self.background_image.opacity = 0
+        self.fixation_cross.opacity = 0
+        self.white_square.opacity = 0
 
     def on_stop(self):
         print("Stopping application")
