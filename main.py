@@ -35,7 +35,7 @@ class SimplifiedEmoScenes(App):
         self.current_trial = 0
         self.current_block = 0
         self.last_trial_end_time = None
-        self.last_scene_time = None
+        self.last_stimulus_offset_time = None  # New variable for correct ITI calculation
         self.trial_start_time = None
         self.intended_iti = None
         self.next_trial_scheduled = False
@@ -57,6 +57,7 @@ class SimplifiedEmoScenes(App):
 
         # Asset paths
         self.fixation_path = "sprites/fixation_cross.png"
+        self.white_square = "sprites/white_square.png"
 
     def setup_ui(self):
         # Create main layout
@@ -149,7 +150,7 @@ class SimplifiedEmoScenes(App):
         log_filename = os.path.join(log_dir, f"ShamScenes_{timestamp}.txt")
         try:
             self.datafilepointer = open(log_filename, "w")
-            self.datafilepointer.write("CrossTime,SceneTime,PicDuration,Target_ITI,Actual_ITI,ITI_Error,Block,Trial,Stimulus,Square\n")
+            self.datafilepointer.write("CrossTime,SceneTime,StimulusOffsetTime,PicDuration,Target_ITI,Actual_ITI,ITI_Error,Block,Trial,Stimulus,Square\n")
             print(f"Log file created: {log_filename}")
         except Exception as e:
             print(f"Error opening log file: {e}")
@@ -191,6 +192,8 @@ class SimplifiedEmoScenes(App):
 
     def show_trial(self, dt):
         self.trial_start_time = time.time()
+        now = datetime.now(pytz.timezone("Europe/Berlin"))
+        self.scene_time = now.timestamp()
 
         # Randomly select and update the square for this trial
         self.current_square = random.choice(self.square_options)
@@ -207,21 +210,25 @@ class SimplifiedEmoScenes(App):
         self.white_square.opacity = 1
         self.white_square.pos = (Window.width - self.white_square.width, 0)
 
+        # Schedule the end of the trial
         Clock.schedule_once(self.end_trial, self.int_DurationPic)
 
     def log_trial_data(self, stim_file):
-        now = datetime.now(pytz.timezone("Europe/Berlin"))
-        self.scene_time = now.timestamp()
+        stimulus_offset_time = datetime.now(pytz.timezone("Europe/Berlin")).timestamp()
         target_iti = self.ITIs[self.current_trial - 1]
-        actual_iti = self.scene_time - self.last_scene_time if self.last_scene_time is not None else 0
-        self.last_scene_time = self.scene_time
+        
+        # Calculate actual ITI (from last stimulus offset to current stimulus onset)
+        actual_iti = self.scene_time - self.last_stimulus_offset_time if self.last_stimulus_offset_time is not None else 0
+        
         iti_error = actual_iti - target_iti
-        log_entry = f"{self.cross_time:.6f},{self.scene_time:.6f},{self.int_DurationPic:.6f},{target_iti:.6f},{actual_iti:.6f},{iti_error:.6f},{self.current_block},{self.current_trial},{stim_file},{self.current_square}\n"
+        log_entry = f"{self.cross_time:.6f},{self.scene_time:.6f},{stimulus_offset_time:.6f},{self.int_DurationPic:.6f},{target_iti:.6f},{actual_iti:.6f},{iti_error:.6f},{self.current_block},{self.current_trial},{stim_file},{self.current_square}\n"
         self.datafilepointer.write(log_entry)
         print(f"Logged: {log_entry.strip()}")
+        
+        # Store the stimulus offset time for next trial's ITI calculation
+        self.last_stimulus_offset_time = stimulus_offset_time
 
     def end_trial(self, dt):
-        
         self.log_trial_data("checkerboard.png")
         self.datafilepointer.flush()
 
@@ -264,7 +271,8 @@ class SimplifiedEmoScenes(App):
 
         if self.current_trial <= len(self.scene_stimuli):
             self.intended_iti = self.ITIs[self.current_trial - 1]
-            fixation_duration = max(0.100000, self.intended_iti - self.int_DurationPic - self.estimated_processing_time)
+            # Adjust fixation duration based on intended ITI minus stimulus duration
+            fixation_duration = max(0.100000, self.intended_iti - self.estimated_processing_time)
             print(f"Intended ITI: {self.intended_iti:.6f} s, Adjusted fixation duration: {fixation_duration:.6f} s")
             Clock.schedule_once(lambda dt: self.show_fixation_cross(fixation_duration), 0)
             self.next_trial_scheduled = True
