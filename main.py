@@ -19,8 +19,6 @@ from pythonosc import dispatcher
 from pythonosc import osc_server
 from pythonosc import udp_client
 import threading
-import sys
-import signal
 from MuseMonitor import MuseSimulator
 
 # Global OSC Configuration
@@ -28,6 +26,13 @@ class OSCConfig:
     IP = "127.0.0.1"
     PORT = 5002
     TIMEOUT = 0.5
+    
+class TouchableFloatLayout(FloatLayout):
+    def on_touch_down(self, touch):
+        app = App.get_running_app()
+        if app:
+            app.handle_touch()
+        return super().on_touch_down(touch)
 
 class ConnectionStatus(BoxLayout):
     def __init__(self, **kwargs):
@@ -166,12 +171,7 @@ class OSCManager:
             self.server_thread.join(timeout=1.0)
             self.server_thread = None
 
-class TouchableFloatLayout(FloatLayout):
-    def on_touch_down(self, touch):
-        app = App.get_running_app()
-        if app:
-            app.handle_touch()
-        return super().on_touch_down(touch)
+
 
 class SimplifiedShamApp(App):
     def __init__(self, **kwargs):
@@ -249,7 +249,36 @@ class SimplifiedShamApp(App):
         self.ITIs = np.random.uniform(1.000000, 3.000000, len(self.scene_stimuli))
         self.next_trial_scheduled = False
         self.trial_running = False
-
+        
+    def initialize_variables(self):
+        self.stim_duration = 0.600000
+        self.current_trial = 1
+        self.last_stim_off_time = None
+        self.current_stim_on_time = None
+        
+        # Create three blocks of 120 trials each
+        self.scene_stimuli = []
+        for block in range(3):
+            block_stimuli = self.create_block()
+            self.scene_stimuli.extend(block_stimuli)
+            
+            # Validate pairs in each block
+            for i in range(0, len(block_stimuli), 2):
+                stim1 = block_stimuli[i].replace('.png', '')
+                stim2 = block_stimuli[i + 1].replace('.png', '')
+                if ('inverted' in stim1 and 'inverted' not in stim2) or \
+                   ('inverted' not in stim1 and 'inverted' in stim2):
+                    base1 = stim1.replace('_inverted', '')
+                    base2 = stim2.replace('_inverted', '')
+                    if base1 != base2:
+                        Logger.warning(f"Mismatched pair in block {block + 1}: {stim1} - {stim2}")
+            
+        Logger.info(f"Created experiment with {len(self.scene_stimuli)} total trials")
+        self.showing_background = True
+        self.ITIs = np.random.uniform(1.000000, 3.000000, len(self.scene_stimuli))
+        self.next_trial_scheduled = False
+        self.trial_running = False
+        
     def start_osc_components(self):
         """Initialize and start OSC server and simulator"""
         try:
@@ -258,12 +287,14 @@ class SimplifiedShamApp(App):
             if self.osc_manager.start_server():
                 Logger.info("OSC server started successfully")
                 
-                # Then start simulator
-                self.simulator = MuseSimulator(port=OSCConfig.PORT)
-                self.simulator_thread = threading.Thread(target=self.simulator.run)
-                self.simulator_thread.daemon = True
-                self.simulator_thread.start()
-                Logger.info("EEG simulator started")
+                # Only start simulator if we're not receiving real data
+                if not self.osc_manager.check_connection:
+                    self.simulator = MuseSimulator(port=OSCConfig.PORT)
+                    self.simulator_thread = threading.Thread(target=self.simulator.run)
+                    self.simulator_thread.daemon = True
+                    self.simulator_thread.start()
+                    Logger.info("EEG simulator started")
+                
             else:
                 Logger.error("Failed to start OSC server - simulator not started")
         except Exception as e:
@@ -300,6 +331,8 @@ class SimplifiedShamApp(App):
                     del self._paused_logged
                     self.log_break("RESUME", "EEG connected")
                 Clock.schedule_once(next_callback, 0)
+            else:
+                self._paused_logged = False
                 return
             Clock.schedule_once(lambda dt: self.pause_for_connection(next_callback), 0.1)
         else:
@@ -310,12 +343,12 @@ class SimplifiedShamApp(App):
             Logger.debug("Trial skipped - already running")
             return
             
-        # Brief connection check before proceeding
-        if hasattr(self, 'osc_manager') and not self.osc_manager.check_connection():
-            self.trial_running = False
-            Logger.debug("Waiting for EEG before starting trial")
-            self.pause_for_connection(lambda: self.show_trial(0))
-            return
+        # Brief connection check before proceeding - TODO DEBUG
+        # if hasattr(self, 'osc_manager') and not self.osc_manager.check_connection():
+            # self.trial_running = False
+            # Logger.debug("Waiting for EEG before starting trial")
+            # self.pause_for_connection(lambda: self.show_trial(0))
+            # return
 
         self.trial_running = True
         Logger.info(f"Starting trial {self.current_trial}")
