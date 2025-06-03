@@ -44,7 +44,7 @@ class EmoScenes(App):
         self.showing_background = True
         
         # Lower and upper bounds of ISI range, and count of ISIs to randomize (limiting the total number of trials)
-        self.ISIs = np.random.uniform(0.100000, 0.300000, 50000)
+        self.ISIs = np.random.uniform(1.000000, 3.000000, 50000)
         
         self.next_trial_scheduled = False
         self.trial_running = False
