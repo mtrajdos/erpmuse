@@ -41,7 +41,7 @@ class EmoScenes(App):
         self.pause_start_time = None
 
     def initialize_variables(self):
-        self.stim_duration = 0.600000
+        self.stim_duration = 0.000006
         self.current_trial = 1
         self.last_stim_off_time = None
         self.current_stim_on_time = None
@@ -49,7 +49,7 @@ class EmoScenes(App):
         self.showing_interruption = False
         
         # Lower and upper bounds of ISI range, and count of ISIs to randomize (limiting the total number of trials)
-        self.ISIs = np.random.uniform(1.000000, 3.000000, 50000)
+        self.ISIs = np.random.uniform(0.000001, 0.000003, 50000)
         
         self.next_trial_scheduled = None  # Track scheduled trial event
         self.trial_running = False
@@ -189,28 +189,32 @@ class EmoScenes(App):
             Logger.info(f"Loaded {count} stimuli for category: {category}")
 
     def randomize_stimuli(self):
-        """Randomize stimuli sequence from loaded files"""
-        block_stimuli = []
+        """Create a large sequence of randomized blocks, each unique"""
+        self.stimuli['sequence'] = []
         
-        # Sample from each category
-        for category in self.stimuli['categories']:
-            available = self.stimuli['files_per_category'][category]
-            needed = self.stimuli['per_category']
+        # Create multiple unique randomized blocks
+        for _ in range(400):
+            block_stimuli = []
             
-            if len(available) >= needed:
-                selected = random.sample(available, needed)
-                block_stimuli.extend(selected)
-            else:
-                Logger.warning(f"Category {category} has only {len(available)} stimuli, needed {needed}")
-                block_stimuli.extend(available)
+            # Sample from each category
+            for category in self.stimuli['categories']:
+                available = self.stimuli['files_per_category'][category]
+                needed = self.stimuli['per_category']
+                
+                if len(available) >= needed:
+                    selected = random.sample(available, needed)
+                    block_stimuli.extend(selected)
+                else:
+                    Logger.warning(f"Category {category} has only {len(available)} stimuli, needed {needed}")
+                    block_stimuli.extend(available)
+            
+            # Shuffle this specific block
+            random.shuffle(block_stimuli)
+            
+            # Add this unique block to the sequence
+            self.stimuli['sequence'].extend(block_stimuli)
         
-        # Shuffle the block
-        random.shuffle(block_stimuli)
-        
-        # Create extended sequence
-        self.stimuli['sequence'] = block_stimuli * 1000
-        
-        Logger.info(f"Created stimulus sequence with {len(block_stimuli)} unique stimuli")
+        Logger.info(f"Created stimulus sequence with {len(self.stimuli['sequence'])} total stimuli")
 
     def preload_images(self):
         """Stable image preloading"""
@@ -379,9 +383,6 @@ class EmoScenes(App):
                 adjusted_isi = next_isi
                 
             self.current_trial += 1
-            
-            if self.current_trial == 125:
-                self.randomize_stimuli()
             
             self.next_trial_scheduled = Clock.schedule_once(self.show_trial, adjusted_isi)
 
