@@ -99,8 +99,48 @@ class EmoScenes(App):
             opacity=0
         )
 
-        self.white_square = KivyImage(
+        self.square_255 = KivyImage(
             source="sprites/255_square.png",
+            size_hint=(None, None),
+            size=(110, 110),
+            pos=(Window.width - 110, 0),
+            allow_stretch=False,
+            keep_ratio=True,
+            opacity=0
+        )
+        
+        self.square_228 = KivyImage(
+            source="sprites/228_square.png",
+            size_hint=(None, None),
+            size=(110, 110),
+            pos=(Window.width - 110, 0),
+            allow_stretch=False,
+            keep_ratio=True,
+            opacity=0
+        )
+        
+        self.square_201 = KivyImage(
+            source="sprites/201_square.png",
+            size_hint=(None, None),
+            size=(110, 110),
+            pos=(Window.width - 110, 0),
+            allow_stretch=False,
+            keep_ratio=True,
+            opacity=0
+        )
+        
+        self.square_174 = KivyImage(
+            source="sprites/174_square.png",
+            size_hint=(None, None),
+            size=(110, 110),
+            pos=(Window.width - 110, 0),
+            allow_stretch=False,
+            keep_ratio=True,
+            opacity=0
+        )
+        
+        self.square_153 = KivyImage(
+            source="sprites/153_square.png",
             size_hint=(None, None),
             size=(110, 110),
             pos=(Window.width - 110, 0),
@@ -123,7 +163,11 @@ class EmoScenes(App):
 
         # Add widgets in stable order
         self.layout.add_widget(self.background_image)
-        self.layout.add_widget(self.white_square)
+        self.layout.add_widget(self.square_255)
+        self.layout.add_widget(self.square_228)
+        self.layout.add_widget(self.square_201)
+        self.layout.add_widget(self.square_174)
+        self.layout.add_widget(self.square_153)
         self.layout.add_widget(self.fixation_cross)
         self.layout.add_widget(self.interruption_label)
 
