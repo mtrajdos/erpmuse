@@ -71,11 +71,11 @@ class EmoScenes(App):
         
         # Mapping of categories to square types
         self.category_to_square = {
-            'highpos': 'square_126',
-            'lowpos': 'square_126',
-            'neutral': 'square_126',
-            'lowneg': 'square_126',
-            'highneg': 'square_126'
+            'highpos': 'square_99',
+            'lowpos': 'square_99',
+            'neutral': 'square_99',
+            'lowneg': 'square_99',
+            'highneg': 'square_99'
         }
         
         self.load_and_categorize_stimulus_files()
