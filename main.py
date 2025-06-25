@@ -141,7 +141,7 @@ class EmoScenes(App):
                         self.display_refresh_rate = best_mode.getRefreshRate()
                 except Exception as e:
                     Logger.warning(f"Could not set display mode: {e}")
-                    self.display_refresh_rate = 90.0  # Assume 90Hz
+                    self.display_refresh_rate = 120.0  # Assume 120Hz
 
         else:
             Logger.info(f"PC platform detected: {kivy_platform}")
