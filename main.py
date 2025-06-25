@@ -112,19 +112,37 @@ class EmoScenes(App):
             # Set the log directory for Android
             self.log_dir = "/storage/emulated/0/Download/logs"
 
-            # Apply Android-specific process priority
+            # Apply Android-specific process priority and display mode
             if kivy_platform == 'android':
                 try:
-                    from jnius import autoclass
+                    from jnius import autoclass, PythonJavaClass, java_method
+
+                    # Set high thread priority for timing critical operations
                     Process = autoclass('android.os.Process')
                     Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY)
                     Logger.info("Set Android thread priority to URGENT_DISPLAY")
-                except Exception as e:
-                    Logger.warning(f"Could not set Android priority: {e}")
-                    
-                # Try to set the preferred display mode to the highest available.
-                # The actual rate will be confirmed via dynamic measurement later.
-                try:
+
+                    # Define a Runnable class to execute our UI code on the main UI thread
+                    class SetDisplayMode(PythonJavaClass):
+                        __javainterfaces__ = ['java/lang/Runnable']
+                        
+                        def __init__(self, activity, best_mode_id, refresh_rate):
+                            super().__init__()
+                            self.activity = activity
+                            self.best_mode_id = best_mode_id
+                            self.refresh_rate = refresh_rate
+
+                        @java_method('()V')
+                        def run(self):
+                            try:
+                                window = self.activity.getWindow()
+                                attrs = window.getAttributes()
+                                attrs.preferredDisplayModeId = self.best_mode_id
+                                window.setAttributes(attrs)
+                                Logger.info(f"Successfully set preferred display mode on UI thread: {self.refresh_rate}Hz")
+                            except Exception as e:
+                                Logger.error(f"Failed to set display mode even on UI thread: {e}")
+
                     PythonActivity = autoclass('org.kivy.android.PythonActivity')
                     activity = PythonActivity.mActivity
                     
@@ -134,21 +152,19 @@ class EmoScenes(App):
                     if modes:
                         # Find mode with highest refresh rate
                         best_mode = max(modes, key=lambda m: m.getRefreshRate())
-                        window = activity.getWindow()
-                        attrs = window.getAttributes()
-                        attrs.preferredDisplayModeId = best_mode.getModeId()
-                        window.setAttributes(attrs)
-                        Logger.info(f"Requested preferred display mode: {best_mode.getRefreshRate()}Hz")
                         
-                        # Store initial estimate of refresh rate for logging
+                        # Schedule the UI operation on the main UI thread
+                        activity.runOnUiThread(SetDisplayMode(activity, best_mode.getModeId(), best_mode.getRefreshRate()))
+                        
+                        # Optimistically set the refresh rate for logging.
+                        # The measurement will still run and can correct it if needed as a fallback.
                         self.display_refresh_rate = best_mode.getRefreshRate()
                     else:
-                        # If modes can't be read, set a temporary default.
-                        self.display_refresh_rate = 120.0
+                        self.display_refresh_rate = 60.0 # Fallback if no modes found
+
                 except Exception as e:
-                    Logger.warning(f"Could not set preferred display mode: {e}. Will rely on measurement.")
-                    # Set a temporary default. The measurement will provide the real value.
-                    self.display_refresh_rate = 120.0
+                    Logger.warning(f"Could not set preferred display mode via native calls: {e}. Will rely on measurement.")
+                    self.display_refresh_rate = 60.0
 
         else:
             Logger.info(f"PC platform detected: {kivy_platform}")
