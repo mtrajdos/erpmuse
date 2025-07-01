@@ -98,11 +98,11 @@ class EmoScenes(App):
         
         # Map categories to brightness squares
         self.category_to_square = {
-            'highpos': 'square_160',
-            'lowpos': 'square_160',
-            'neutral': 'square_160',
-            'lowneg': 'square_160',
-            'highneg': 'square_160'
+            'highpos': 'square_255',
+            'lowpos': 'square_255',
+            'neutral': 'square_255',
+            'lowneg': 'square_255',
+            'highneg': 'square_255'
         }
         
         # Load and prepare stimuli
