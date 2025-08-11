@@ -26,8 +26,8 @@ class Config:
         'highpos': 'square_255',
         'lowpos': 'square_255',
         'neutral': 'square_255',
-        'lowneg': 'square_255',
-        'highneg': 'square_255'
+        'lowneg': 'square_0',
+        'highneg': 'square_0'
     }
     
     # Paths
