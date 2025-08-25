@@ -18,6 +18,8 @@ class VectorSequenceController:
             self.vector_dir = Path("/storage/emulated/0/Download/vectors")
         else:
             self.vector_dir = Path(os.path.join(os.getcwd(), "vectors"))
+            
+        self.vector_dir.mkdir(parents=True, exist_ok=True)
         
         self.category_sequence = []
         self.current_vector_file = None
