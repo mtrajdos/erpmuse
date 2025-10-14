@@ -1,22 +1,21 @@
-"""Controls experiment parameters, timing, ISIs, and localization"""
 import numpy as np
 import textwrap
 
 class ExperimentParamController:
-    def __init__(self):
-        # Timing configuration
-        self.stim_duration = 0.300000  # 300ms, three stim per second (together with two ISIs)
-        self.isi_min = 0.005000
-        self.isi_max = 0.011000
-        self.total_trials = 50000
+    def __init__(self, config):
+        self.config = config
+        
+        # Get timing from config
+        self.stim_duration = config.STIM_DURATION
+        self.isi_min = config.ISI_MIN
+        self.isi_max = config.ISI_MAX
+        self.total_trials = config.TOTAL_TRIALS
         
         # Generate ISIs
         self.isis = np.random.uniform(self.isi_min, self.isi_max, self.total_trials)
         
-        # Language settings
+        # Language settings (keep localization here)
         self.current_language = "EN"
-        
-        # Localization strings
         self.texts = {
             'DE': {
                 'instructions': (

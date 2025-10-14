@@ -22,10 +22,21 @@ except ImportError:
 print(f"Using {OSC_BACKEND} for OSC communication")
 
 class OSCReceiver:
-    def __init__(self, ip="127.0.0.1", port=5000, timeout_threshold=0.200):
+    def __init__(self, config=None, ip="127.0.0.1", port=5000):
+        # Import your config module, not the class
+        if config is None:
+            from config import Config as AppConfig
+            self.config = AppConfig()
+        else:
+            self.config = config
+        
         self.ip = ip
         self.port = port
-        self.timeout_threshold = timeout_threshold
+        
+        self.timeout_threshold = self.config.OSC_TIMEOUT_THRESHOLD
+        
+        self.ip = ip
+        self.port = port
         self.last_data_time = None
         self.is_running = False
         self.server = None

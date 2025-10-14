@@ -1,27 +1,28 @@
 """Main application entry point"""
-from kivy.config import Config
+import traceback
+
+from kivy.config import Config as KivyConfig
 from kivy.core.window import Window
 from kivy.app import App
 from kivy.logger import Logger
 from kivy.utils import platform as kivy_platform
 
-# Import modules
+# Import modules - use clear names
 from config import Config as AppConfig
 from experiment_logger import ExperimentLogger
 from experiment_flow_controller import ExperimentFlowController
 from experiment_param_controller import ExperimentParamController
 from ui_controller import UIController
 from connection_monitor import ConnectionMonitor
-# REMOVED: from osc_receiver import osc_receiver  <-- DELETE THIS LINE
 from stimuli_analyzer import StimuliAnalyzer
-from services import Services  # ADD THIS
+from services import Services
 
-# Window configuration (must be before other imports)
+# Window configuration (use KivyConfig instead of Config)
 Window.borderless = True
-Config.set('graphics', 'fullscreen', 'auto')
-Config.set('graphics', 'vsync', '1')
-Config.set('graphics', 'maxfps', '0')
-Config.write()
+KivyConfig.set('graphics', 'fullscreen', 'auto')
+KivyConfig.set('graphics', 'vsync', '1')
+KivyConfig.set('graphics', 'maxfps', '0')
+KivyConfig.write()
 
 class EmoScenes(App):
     def __init__(self, **kwargs):
@@ -37,7 +38,7 @@ class EmoScenes(App):
         self.stimuli_analyzer = StimuliAnalyzer()
         
         # Initialize controllers
-        self.param_controller = ExperimentParamController()
+        self.param_controller = ExperimentParamController(self.config)
         self.logger = ExperimentLogger(self.config)
         self.ui_controller = UIController(self.config, self.param_controller)
         
@@ -105,6 +106,7 @@ class EmoScenes(App):
         
         # Initialize experiment parameters
         experiment_params = self.param_controller.get_experiment_params()
+        self.flow_controller.initialize(experiment_params)
         
         # Initialize logger
         self.logger.initialize(experiment_params)
@@ -140,4 +142,10 @@ if __name__ == "__main__":
     try:
         EmoScenes().run()
     except Exception as e:
+        print("=" * 60)
+        print("FULL TRACEBACK:")
+        print("=" * 60)
+        traceback.print_exc()
+        print("=" * 60)
         Logger.error(f'Application Error: {str(e)}')
+        raise  # Re-raise to see Kivy's error handling too

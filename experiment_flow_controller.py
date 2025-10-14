@@ -10,8 +10,7 @@ import numpy as np
 # Import the vector controller
 from vector_sequence_controller import VectorSequenceController
 
-
-class ExperimentFlowController:
+class ExperimentFlowController():
     def __init__(self, config, ui_controller, logger, connection_monitor):
         self.config = config
         self.ui_controller = ui_controller
@@ -289,8 +288,10 @@ class ExperimentFlowController:
         
         if self.last_stim_off_time and self.current_stim_on_time:
             actual_duration = self.current_stim_off_time - self.current_stim_on_time
-            duration_drift = actual_duration - self.experiment_params.stim_duration
-            adjusted_isi = max(0.100000, next_isi - duration_drift)
+            duration_drift = actual_duration - self.config.STIM_DURATION
+            
+            # Just use ISI_MIN as the floor - no need for separate MINIMUM_ISI
+            adjusted_isi = max(self.config.ISI_MIN, next_isi - duration_drift)
         else:
             adjusted_isi = next_isi
             
